@@ -1,4 +1,5 @@
 import sys
+import json
 from PySide import QtCore, QtGui
 
 
@@ -203,7 +204,14 @@ class main_window(QtGui.QWidget):
 		self.width = 600
 		self.resize(self.width,self.height)
 
-		self.product_dict = {'Nuke':{'Dev':'meerman'}, 'Joota' : {'Stable': 'meerman', 'Dev' : 'windows'}, 'Katana' : {'Stable': 'meerman', 'Integration' : 'windows'}}
+		with open('subScript_generator.json') as data_file:
+			self.dict = json.load(data_file)
+
+		#get the right section
+		self.product_dict = self.dict['generator']
+
+		# self.product_dict = {'Nuke':{'Dev':'meerman'}, 'Joota' : {'Stable': 'meerman', 'Dev' : 'windows'}, 'Katana' : {'Stable': 'meerman', 'Integration' : 'windows'}}
+
 
 		self.use_dictionary()
 		self.create_widgets()

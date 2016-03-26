@@ -41,7 +41,6 @@ class errorDialog(QtGui.QWidget):
 
 class BlockWidget(QtGui.QWidget):
 	visibilityToggled = QtCore.Signal()
-
 	def __init__(self, product_name, names = [], parent = None):
 		super(BlockWidget, self).__init__(parent)
 
@@ -56,6 +55,7 @@ class BlockWidget(QtGui.QWidget):
 
 	def create_widgets(self):
 		self.button = QtGui.QPushButton(self.product_name)
+		# print self.product_name
 		self.checkBoxContainer = QtGui.QWidget(self)
 
 		checkBoxLayout = QtGui.QVBoxLayout()
@@ -146,8 +146,8 @@ class Container(QtGui.QWidget):
 		self.table.clear()
 		self.rowCount = len(self.__config)+1
 		self.table.setRowCount(self.rowCount)
-
 		for index, configurations in enumerate(self.__config):
+			# print configurations
 			block = BlockWidget(self.__product_name[index],configurations)
 			block.visibilityToggled.connect(self.resizeRows)
 			self.table.setCellWidget(index, 0, block)
@@ -176,19 +176,22 @@ class Container(QtGui.QWidget):
 		build_list = []
 		with open('jenkins_Builds.json') as data_file:
 			original_dict = json.load(data_file)
-
-		#get chosen builds and their configs then make that into a dictionary
+		test = []
 		for item in final_dictionary[0]:
+			tmp = []
 			for l in item[1]:
 				config_dictionary[l] = original_dict[item[0][0]][l]
 				build_list.append(l)
+				tmp.append(l)
+			test.append(tmp)
+			print test
+
 		final_list = [build_list,config_dictionary]
 		return final_list
 
 	def dictionary_to_make_subScript(self, configs):
-		lol = {}
 		builds = {}
-		address = {}
+
 		#Load original dictionary
 		with open('jenkins_Builds.json') as in_file:
 			original_dict = json.load(in_file)
@@ -197,23 +200,29 @@ class Container(QtGui.QWidget):
 			product_list = json.load(data_file)
 		# print product_list["products"]
 
-
-		for product in product_list["products"]:
-			builds[product] = {}
-			for build in configs[0]:
-				# print product,build[0][0],build[1][0]
-				# print original_dict[product][build[0][0]][build[1][0]]
-				builds[product][build[0][0]] = original_dict[product][build[0][0]][build[1][0]]
-				# address[build[1][0]] = original_dict[product][build[0][0]][build[1][0]]
-				print builds
-		# 	lol[product] = original_dict[product][build]
+		# Make a section to store the generator info in this dictionary
+		product_list['generator'] = {}
 
 
+		for index, product in enumerate(product_list["products"]):
+			# Build is the configuration key name
+			product_list['generator'][product] = {}
+			test = {}
+			# configs[0][index][1] is the list of selected configurations
+			# print configs
+			for x in configs:
+				# print x
+				# for build in configs[0][index][1]:
+					# print build
+					# test[configs[0][index][0][0]] Is the list of builds
+					# print product, configs[0][index][0][0], build
+				# print product, x[0][0],x[1][0]
+				test[x[0][0]] = original_dict[product][x[0][0]][x[1][0]]
+			product_list['generator'][product] = test
+		# print product_list['generator']
 
-
-
-
-
+		with open ('subScript_generator.json', "w") as outfile:
+			json.dump(product_list, outfile)
 
 
 
@@ -332,11 +341,15 @@ class main_window(QtGui.QWidget):
 			formatted_config_list.append(config_dictionary[1])
 			# Check to see if the user has selected anything
 			if config_dictionary[0] != []:
-				for each in config_dictionary[1]:
+				# print config_dictionary
+				for each in config_dictionary[0]:
 					build_list.append(each)
-					formatted_config_list.append(config_dictionary[1][each]) 
+					formatted_config_list.append(config_dictionary[1][each])
+
 				#delete the name of the product from the dictionary list as we dont need it and it gets in the way 
 				del formatted_config_list[0]
+
+				# print build_list , formatted_config_list
 				self.config_checkbox_form = Container(build_list,formatted_config_list)
 				# Resize the widget to accomodate the new widget
 				self.resize(800,self.height)
@@ -408,7 +421,7 @@ class product_window(QtGui.QWidget):
 		tmp_list = []
 		for name in self.products:
 			tmp_list.append(name)
-		tmp_list.sort()
+		# tmp_list.sort()
 
 		checkBoxLayout = QtGui.QVBoxLayout()
 		checkBoxLayout.setContentsMargins(0,0,0,0)
@@ -490,19 +503,27 @@ class choose_projects():
 	def populate_products_with_builds(self,product_list):
 		self.config = []
 		self.products = []
+		products = []
+
 		# # Get the builds from selected products and write it to a dictionary
-		# ins = getProjectConfigurations()
-		# ins.return_multiple_projects(product_list)
+		ins = getProjectConfigurations()
+		ins.return_multiple_projects(product_list)
 		# Read it from the dictionary
 		with open('jenkins_Builds.json') as data_file:
-			test1 = json.load(data_file)
+			builds_from_file = json.load(data_file)
 
-		# Format the data so that we get a list that contains the product name and a dictionary for each product
-		for each in test1:
+
+		for each in builds_from_file:
 			# Products
-			self.products.append(each)
+			products.append(each)
+		#sort the products list so we can then attach the rest of the data (makes the UI layout in order)
+		products.sort()
+		# Format the data so that we get a list that contains the product name and a dictionary for each product
+		for item in products:
+			# Products
+			self.products.append(item)
 			# Dictionary of builds
-			self.config.append(test1[each])
+			self.config.append(builds_from_file[item])
 
 		combined_list = [self.products, self.config]
 		return combined_list
