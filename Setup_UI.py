@@ -95,7 +95,7 @@ class BlockWidget(QtGui.QWidget):
 				chosen_config.append(checkbox)
 		# print chosen_config
 		list_of_chosen_items = [chosen_products,chosen_config]
-		return list_of_chosen_items
+		return [list_of_chosen_items,self.product_name]
 
 class Container(QtGui.QWidget):
 	def __init__(self, product_name, config, parent = None):
@@ -159,15 +159,18 @@ class Container(QtGui.QWidget):
 
 	def return_configs(self):
 		config_list = []
+		product_list = []
 		for widget in range(self.rowCount-1):
 			returned_list = self.table.cellWidget(widget,0).return_checked()
-			if not returned_list[1] == []:
-				config_list.append(returned_list)
-		# self.make_final_dictionary(config_list)
-		return config_list
+			# Add the product name to a list to return it to for the final final dictionary
+			product_list.append(returned_list[1])
+			if not returned_list[0][1] == []:
+				config_list.append(returned_list[0])
+		# self.make_config_list(config_list)
+		return [config_list,product_list]
 
 
-	def make_final_dictionary(self):
+	def make_config_list(self):
 		final_dictionary = self.return_configs()
 		config_dictionary = {}
 		build_list = []
@@ -175,13 +178,43 @@ class Container(QtGui.QWidget):
 			original_dict = json.load(data_file)
 
 		#get chosen builds and their configs then make that into a dictionary
-		for item in final_dictionary:
+		for item in final_dictionary[0]:
 			for l in item[1]:
 				config_dictionary[l] = original_dict[item[0][0]][l]
 				build_list.append(l)
 		final_list = [build_list,config_dictionary]
-		# print config_dictionary
 		return final_list
+
+	def dictionary_to_make_subScript(self, configs):
+		lol = {}
+		builds = {}
+		address = {}
+		#Load original dictionary
+		with open('jenkins_Builds.json') as in_file:
+			original_dict = json.load(in_file)
+		#Load new dictionary with chosen products in it
+		with open('subScript_generator.json') as data_file:
+			product_list = json.load(data_file)
+		# print product_list["products"]
+
+
+		for product in product_list["products"]:
+			builds[product] = {}
+			for build in configs[0]:
+				# print product,build[0][0],build[1][0]
+				# print original_dict[product][build[0][0]][build[1][0]]
+				builds[product][build[0][0]] = original_dict[product][build[0][0]][build[1][0]]
+				# address[build[1][0]] = original_dict[product][build[0][0]][build[1][0]]
+				print builds
+		# 	lol[product] = original_dict[product][build]
+
+
+
+
+
+
+
+
 
 
 class main_window(QtGui.QWidget):
@@ -240,6 +273,7 @@ class main_window(QtGui.QWidget):
 
 	def change_Layout(self):
 		try:
+			product_output = {}
 			if self.layout == "First_Page":
 				chosen_products = self.product_form.return_checked()
 				#check if the user has selected a new check box, if so then regenerate the list if not then dont move. 
@@ -268,9 +302,14 @@ class main_window(QtGui.QWidget):
 					# Insert the new widget
 					self.splitter.insertWidget(1,self.checkbox_form)
 					self.config_window_generated = False
-
 			else:
 				pass
+
+			#Write out the chosen products to the final dictionary
+			product_output['products'] = chosen_products
+			with open ("subScript_generator.json", "w") as outfile:
+				json.dump(product_output, outfile)
+
 		except IOError:
 			window = errorDialog('Cannot Connect to Jenkins, \n Please Check Connection')
 		except:
@@ -288,7 +327,7 @@ class main_window(QtGui.QWidget):
 			formatted_config_list = []
 			build_list = []
 			# Get the configuration dictionary from the checkboxes
-			config_dictionary = self.checkbox_form.make_final_dictionary()
+			config_dictionary = self.checkbox_form.make_config_list()
 			# Format it correctly to pass into to the checkbox widget
 			formatted_config_list.append(config_dictionary[1])
 			# Check to see if the user has selected anything
@@ -308,10 +347,8 @@ class main_window(QtGui.QWidget):
 
 	def save_and_exit(self):
 		# pass
-		test = self.splitter.widget(1).return_configs()
-		output = self.splitter.widget(2).return_configs()
-		print output
-		print test
+		output = self.splitter.widget(2).return_configs()		
+		self.splitter.widget(2).dictionary_to_make_subScript(output)
 
 	def remove_product(self,extra = None):
 		#Get the boolean for if the user is sure they want to delete or not
