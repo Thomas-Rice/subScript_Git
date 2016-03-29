@@ -1,1 +1,1 @@
-{"products": ["HPC", "Katana", "Licensing"]}
+{"alias": {"Joota_901stable": "Stable", "Joota_901dev": "Dev"}, "products": ["Modo"], "generator": {"Modo": {"Joota_901stable": "meerman", "Joota_901dev": "meerman"}}}

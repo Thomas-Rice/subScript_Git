@@ -223,14 +223,22 @@ class main_window(QtGui.QWidget):
 		self.tab_list = []
 		# Append nake of products to a list for the button to read
 		for product in self.product_dict:
-			self.test = []
+			self.tab_names = []
 			self.product_list.append(product)
 			# Create a list of tabs to use for each product
 			for tab in self.product_dict[product]:
-				self.test.append(tab)
-			self.tab_list.append(tab_main_window(self.test))
+				tab = self.check_alias(tab)
+				self.tab_names.append(tab)
+			self.tab_list.append(tab_main_window(self.tab_names))
 
 		self.tab = productButtonLayout(self.product_list)
+
+	def check_alias(self,key):
+		with open("subScript_generator.json") as data_file:
+			returned_data = json.load(data_file)
+
+		if not returned_data['alias'][key] == {}:
+			return returned_data['alias'][key]
 
 
 
@@ -251,6 +259,7 @@ class main_window(QtGui.QWidget):
 		# The singal that a button has been pressed from the products buttons
 		self.tab.layout_changed.connect(self.change_tab)
 
+
 	def change_tab(self,number):
 		self.use_dictionary()
 		# Change the layout according to the product button chosen
@@ -258,6 +267,7 @@ class main_window(QtGui.QWidget):
 		# For some reason this comes out as unicode so need to cast it as an int
 		self.tab = self.tab_list[int(number)]
 		self.splitter.insertWidget(1,self.tab)
+
 
 
 

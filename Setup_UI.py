@@ -98,12 +98,12 @@ class BlockWidget(QtGui.QWidget):
 		return [list_of_chosen_items,self.product_name]
 
 class Container(QtGui.QWidget):
-	def __init__(self, product_name, config, parent = None):
+	def __init__(self, product_name, config,builds_within_products_list =None, parent = None):
 		super(Container, self).__init__(parent)
 		self.resize(400,400)
 		self.__config = config
 		self.__product_name = product_name
-
+		self.builds_within_products_list = builds_within_products_list
 
 		self.create_widgets()
 		self.create_layout()
@@ -167,7 +167,7 @@ class Container(QtGui.QWidget):
 			if not returned_list[0][1] == []:
 				config_list.append(returned_list[0])
 		# self.make_config_list(config_list)
-		return [config_list,product_list]
+		return [config_list,product_list,self.builds_within_products_list]
 
 
 	def make_config_list(self):
@@ -176,17 +176,17 @@ class Container(QtGui.QWidget):
 		build_list = []
 		with open('jenkins_Builds.json') as data_file:
 			original_dict = json.load(data_file)
-		test = []
+		builds_within_products_list = []
 		for item in final_dictionary[0]:
-			tmp = []
+			# print item
 			for l in item[1]:
 				config_dictionary[l] = original_dict[item[0][0]][l]
 				build_list.append(l)
-				tmp.append(l)
-			test.append(tmp)
-			print test
+			builds_within_products_list.append(item)
 
-		final_list = [build_list,config_dictionary]
+		final_list = [build_list,config_dictionary,builds_within_products_list]
+		# print 'build list is  .. ', build_list
+		# print 'config_dictionary is ... ',config_dictionary
 		return final_list
 
 	def dictionary_to_make_subScript(self, configs):
@@ -202,24 +202,16 @@ class Container(QtGui.QWidget):
 
 		# Make a section to store the generator info in this dictionary
 		product_list['generator'] = {}
-
-
-		for index, product in enumerate(product_list["products"]):
-			# Build is the configuration key name
-			product_list['generator'][product] = {}
-			test = {}
-			# configs[0][index][1] is the list of selected configurations
-			# print configs
-			for x in configs:
-				# print x
-				# for build in configs[0][index][1]:
-					# print build
-					# test[configs[0][index][0][0]] Is the list of builds
-					# print product, configs[0][index][0][0], build
-				# print product, x[0][0],x[1][0]
-				test[x[0][0]] = original_dict[product][x[0][0]][x[1][0]]
-			product_list['generator'][product] = test
-		# print product_list['generator']
+		index = 0 
+		for product in configs[2]:
+			build_dict = {}
+			for build in product[1]:
+				if not build == product[0]:
+					# add the differnet builds for each product
+					build_dict[build] = configs[0][index][1][0]
+					index +=1
+				# make the final dictionary with the product each configuration etc
+				product_list['generator'][product[0][0]] = build_dict
 
 		with open ('subScript_generator.json', "w") as outfile:
 			json.dump(product_list, outfile)
@@ -251,12 +243,14 @@ class main_window(QtGui.QWidget):
 		self.create_connections()
 
 
+
 	def create_widgets(self):
 		self.button = QtGui.QPushButton('Generate Build List')
 		self.button2 = QtGui.QPushButton('Generate Config List')
 		self.button3 = QtGui.QPushButton('Save and Exit')
 		self.button4 = QtGui.QPushButton('Remove Product (Take out later)')
 		self.button5 = QtGui.QPushButton('Add Product (Take out later)')
+		self.button6 = QtGui.QPushButton('Create Alias for builds')
 		self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
 
 		self.splitter.addWidget(self.product_form)
@@ -271,6 +265,7 @@ class main_window(QtGui.QWidget):
 		main_layout.addWidget(self.button3)
 		main_layout.addWidget(self.button4)
 		main_layout.addWidget(self.button5)
+		main_layout.addWidget(self.button6)
 		self.setLayout(main_layout)
 
 	def create_connections(self):
@@ -279,6 +274,7 @@ class main_window(QtGui.QWidget):
 		self.button3.clicked.connect(self.save_and_exit)
 		self.button4.clicked.connect(self.remove_product)
 		self.button5.clicked.connect(self.add_product)
+		self.button6.clicked.connect(self.alias_window)
 
 	def change_Layout(self):
 		try:
@@ -350,7 +346,7 @@ class main_window(QtGui.QWidget):
 				del formatted_config_list[0]
 
 				# print build_list , formatted_config_list
-				self.config_checkbox_form = Container(build_list,formatted_config_list)
+				self.config_checkbox_form = Container(build_list,formatted_config_list,config_dictionary[2])
 				# Resize the widget to accomodate the new widget
 				self.resize(800,self.height)
 				# Insert the widget
@@ -397,6 +393,8 @@ class main_window(QtGui.QWidget):
 		self.splitter.setSizes([70,230])
 		self.resize(400,self.height)
 
+	def alias_window(self):
+		self.lol = AliasWindow()
 
 
 class product_window(QtGui.QWidget):
@@ -527,6 +525,97 @@ class choose_projects():
 
 		combined_list = [self.products, self.config]
 		return combined_list
+
+class AliasWindow(QtGui.QWidget):
+	def __init__(self, parent = None):
+		super(AliasWindow, self).__init__(parent)
+
+		self.height = 600
+		self.resize(400,self.height)
+
+		self.alias = {}
+		with open("subScript_generator.json") as data_file:
+			self.returned_data = json.load(data_file)
+
+
+		self.create_widgets()
+		self.populate()
+		self.create_layout()
+		# self.create_connections()
+
+
+
+	def create_widgets(self):
+		self.table = QtGui.QTableWidget(self)
+		self.table.setColumnCount(2)
+		#hide the row and colum numbers
+		self.table.horizontalHeader().hide()
+		self.table.verticalHeader().hide()
+		#stretch the row to fill the screen
+		self.table.horizontalHeader().setStretchLastSection(True)
+
+
+
+		self.alias_list = []
+		self.build_list = []
+		for product in self.returned_data['generator']:
+			for build in self.returned_data['generator'][product]:
+				#add in the builds selected to the table
+				self.build_list.append(build)
+				# If there are no previous alais' then it will throw an exception so in that case we set each to an empty string 
+				try:
+					self.alias_list.append(self.returned_data['alias'][product])
+				except:
+					self.returned_data['alias'] = {}
+					self.alias_list.append('')
+					with open ("subScript_generator.json", "w") as outfile:
+						json.dump(self.returned_data, outfile)
+
+		self.button = QtGui.QPushButton("Apply")
+
+	def create_layout(self):
+		main_layout = QtGui.QVBoxLayout()
+		main_layout.setContentsMargins(0,0,0,0)
+		main_layout.addWidget(self.table)
+		main_layout.addWidget(self.button)
+		self.setLayout(main_layout)
+		self.show()
+
+	def create_connections(self):
+		self.button.clicked.connect(save_and_exit)
+
+	def populate(self):
+		self.table.clear()
+		self.rowCount = len(self.build_list)+1
+		self.table.setRowCount(self.rowCount)
+		for index, item in enumerate(self.build_list):
+			line_edit = QtGui.QLineEdit(self)
+			line_edit.setText(self.alias_list[index])
+			line_edit.editingFinished.connect(self.get_alias)
+			label = QtGui.QLabel(self)
+			label.setText(item)
+			label.setContentsMargins(5,5,5,5)
+			self.table.setCellWidget(index, 0, label)
+			self.table.setCellWidget(index, 1, line_edit)
+
+		self.table.resizeRowsToContents()
+		self.table.resizeColumnsToContents()
+
+	def get_alias(self):
+		# for each text box write out the alias
+		for index, item in enumerate(self.build_list):
+			text = self.table.cellWidget(index,1).text()
+			self.returned_data['alias'][item] = text
+
+		with open ("subScript_generator.json", "w") as outfile:
+			json.dump(self.returned_data, outfile)
+
+	def save_and_exit(self):
+		with open ("subScript_generator.json", "w") as outfile:
+			json.dump(self.returned_data, outfile)
+
+
+
 
 
 class styleSheet():
