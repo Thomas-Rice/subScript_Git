@@ -1,23 +1,42 @@
-import os, platform, sys, shutil
+import os
+import platform
+import sys
+import shutil
+import getpass
 
 
 class removePrefs:
-	def __init__(self, jootaLocation,footwearPath):
+	def __init__(self, product,specific_project, footwearPath = None):
 		self.prefs = ''
 		self.prefsPath = ''
 		self.jootaDir = ''
 		self.dirPath = ''
-		self.footwearPath = ''
 		self.settingsPath = ''
 		self.prefsList = []
 		self.user = os.path.expanduser("~")
 		self.localOS = platform.system()
-		self.jootaLocation = jootaLocation
-		self.footwearPath = footwearPath
-		self.jootaDir = 'Joota'
+
+		#Choose product
+		if product == "Modo":
+			if 'Joota' in specific_project:
+				#Folder to delete
+				self.jootaDir = 'Joota'
+			self.footwearPath = footwearPath
+			self.Modo_Delete('luxology')
+
+		elif product == 'Mari':
+			self.Mari_Delete()
+
+		elif product == "Nuke":
+			self.delete('nuke')
+		elif product == "Katana":
+			self.delete('katana')
+		else:
+			pass
 
 
-	def delete(self):
+	def Modo_Delete(self,files_to_delete):
+		self.prefs = []
 		#Windows 
 		if self.localOS == 'Windows':
 			self.prefs = 'JOOTA901.CFG'
@@ -29,13 +48,16 @@ class removePrefs:
 				self.prefsList.append(self.settingsPath)
 
 			self.dirPath = '{}\AppData\Roaming\Luxology\{}'.format(self.user, self.jootaDir)
+		
 		#Mac
 		elif self.localOS == 'Darwin' or self.localOS == 'MacOS':
-			self.prefs = ['com.luxology.joota.plist', 'com.luxology.joota901','com.luxology.joota_cl904','com.luxology.joota904',
-							'com.luxology.modo901','com.luxology.modo902','com.luxology.modo903','com.luxology.modo904','com.luxology.modo.plist']
+			#Get user name
+			prefs_path = "/Users/{}/Library/Preferences".format(getpass.getuser())
+			# find all the files in this directory that contain the word luxology
+			files_list = self.get_files_in_dir(files_to_delete,prefs_path)
 
 			# append filepath strings to a list for deletion
-			for pref in self.prefs:
+			for pref in files_list:
 				self.prefsPath = '{}/Library/Preferences/{}'.format(self.user, pref)
 				self.prefsList.append(self.prefsPath)
 
@@ -45,17 +67,40 @@ class removePrefs:
 
 			self.dirPath = '{}/Library/Preferences/{}'.format(self.user, self.jootaDir)
 
+		#Get files and delete them ALLLL!!!
+		self.delete_files(self.prefsList)
+		self.delete_folder(self.dirPath)
 
-		#Delete Prefs stored in the list
-		for eachPref in self.prefsList:
+	def Mari_Delete(self):
+		if self.localOS == 'Windows':
+			prefs_path = 'C:/Users/{}/.mari/TheFoundry'.format(self.user)
+		elif self.localOS == 'Darwin' or self.localOS == 'MacOS':
+			prefs_path = os.path.join(self.user,'.config/TheFoundry')
+		elif self.localOS == 'Linux':
+			prefs_path = '~/.config/TheFoundry'
+		
+		self.delete_folder(prefs_path)
+
+
+	def get_files_in_dir(self,search_term,prefs_path):
+		prefs = []
+		for preference in os.listdir(prefs_path):
+			if search_term in preference:
+				prefs.append(preference)
+		return prefs
+
+	def delete_files(self, prefs_list):
+ 		#Delete Prefs stored in the list
+		for eachPref in prefs_list:
 			if os.path.exists(eachPref):
 				os.remove(eachPref)
-				
-		if os.path.exists(self.dirPath):
-			shutil.rmtree(self.dirPath)
 
-		# print ('Deleted Preferences') 
+	def delete_folder(self, path):
+		if os.path.exists(path):
+			shutil.rmtree(path)
+
+
+
 
 if __name__ == "__main__":
-    removePrefs = removePrefs()
-    removePrefs.delete()
+    removePrefs = removePrefs('Mari','Joota_901stable','/Users/Tom/Desktop/Joota/Joota_Depot/Footwear/Settings/Modo')
