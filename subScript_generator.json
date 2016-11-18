@@ -1,1 +1,1 @@
-{"products": ["Modo"]}
+{"alias": {"Joota_901stable": "", "Honda_901dev": "", "Katana_2.1dev_test_nightly": "test", "Honda_901stable": "", "Katana_main_dev": "", "Oakley_901dev": ""}, "products": [], "generator": {"Katana": {"Katana_2.1dev_test_nightly": "LINUX_CENTOS67_64", "Katana_main_dev": "vm-katana-centos54-64"}, "Modo": {"Honda_901dev": "vm-modo-win7", "Joota_901stable": "meerman", "Oakley_901dev": "meerman", "Honda_901stable": "vm-modo-win7"}}}

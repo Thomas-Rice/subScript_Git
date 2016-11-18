@@ -2,6 +2,9 @@ import sys
 import json
 from PySide import QtCore, QtGui
 from getProjectConfigurations import *
+from messagesAndPaths import *
+
+InstallDMG('/Users/Tom/Downloads/Nuke')
 
 
 class AddProductToSetupDialogue(QtGui.QWidget):
@@ -22,7 +25,7 @@ class RemoveProductToSetupDialogue(QtGui.QWidget):
 
 	def closeEvent(self):
 		reply = QtGui.QMessageBox.question(self, 'Confirm Removal',
-			"Are you sure to quit?", QtGui.QMessageBox.Yes | 
+			"Are you sure to remove this product?", QtGui.QMessageBox.Yes | 
 			QtGui.QMessageBox.No, QtGui.QMessageBox.No)
 
 		if reply == QtGui.QMessageBox.Yes:
@@ -41,7 +44,6 @@ class errorDialog(QtGui.QWidget):
 
 class BlockWidget(QtGui.QWidget):
 	visibilityToggled = QtCore.Signal()
-
 	def __init__(self, product_name, names = [], parent = None):
 		super(BlockWidget, self).__init__(parent)
 
@@ -56,6 +58,7 @@ class BlockWidget(QtGui.QWidget):
 
 	def create_widgets(self):
 		self.button = QtGui.QPushButton(self.product_name)
+		# print self.product_name
 		self.checkBoxContainer = QtGui.QWidget(self)
 
 		checkBoxLayout = QtGui.QVBoxLayout()
@@ -98,12 +101,12 @@ class BlockWidget(QtGui.QWidget):
 		return [list_of_chosen_items,self.product_name]
 
 class Container(QtGui.QWidget):
-	def __init__(self, product_name, config, parent = None):
+	def __init__(self, product_name, config,builds_within_products_list =None, parent = None):
 		super(Container, self).__init__(parent)
 		self.resize(400,400)
 		self.__config = config
 		self.__product_name = product_name
-
+		self.builds_within_products_list = builds_within_products_list
 
 		self.create_widgets()
 		self.create_layout()
@@ -146,8 +149,8 @@ class Container(QtGui.QWidget):
 		self.table.clear()
 		self.rowCount = len(self.__config)+1
 		self.table.setRowCount(self.rowCount)
-
 		for index, configurations in enumerate(self.__config):
+			# print configurations
 			block = BlockWidget(self.__product_name[index],configurations)
 			block.visibilityToggled.connect(self.resizeRows)
 			self.table.setCellWidget(index, 0, block)
@@ -167,7 +170,7 @@ class Container(QtGui.QWidget):
 			if not returned_list[0][1] == []:
 				config_list.append(returned_list[0])
 		# self.make_config_list(config_list)
-		return [config_list,product_list]
+		return [config_list,product_list,self.builds_within_products_list]
 
 
 	def make_config_list(self):
@@ -176,19 +179,22 @@ class Container(QtGui.QWidget):
 		build_list = []
 		with open('jenkins_Builds.json') as data_file:
 			original_dict = json.load(data_file)
-
-		#get chosen builds and their configs then make that into a dictionary
+		builds_within_products_list = []
 		for item in final_dictionary[0]:
+			# print item
 			for l in item[1]:
 				config_dictionary[l] = original_dict[item[0][0]][l]
 				build_list.append(l)
-		final_list = [build_list,config_dictionary]
+			builds_within_products_list.append(item)
+
+		final_list = [build_list,config_dictionary,builds_within_products_list]
+		# print 'build list is  .. ', build_list
+		# print 'config_dictionary is ... ',config_dictionary
 		return final_list
 
 	def dictionary_to_make_subScript(self, configs):
-		lol = {}
 		builds = {}
-		address = {}
+
 		#Load original dictionary
 		with open('jenkins_Builds.json') as in_file:
 			original_dict = json.load(in_file)
@@ -197,23 +203,21 @@ class Container(QtGui.QWidget):
 			product_list = json.load(data_file)
 		# print product_list["products"]
 
+		# Make a section to store the generator info in this dictionary
+		product_list['generator'] = {}
+		index = 0 
+		for product in configs[2]:
+			build_dict = {}
+			for build in product[1]:
+				if not build == product[0]:
+					# add the differnet builds for each product
+					build_dict[build] = configs[0][index][1][0]
+					index +=1
+				# make the final dictionary with the product each configuration etc
+				product_list['generator'][product[0][0]] = build_dict
 
-		for product in product_list["products"]:
-			builds[product] = {}
-			for build in configs[0]:
-				# print product,build[0][0],build[1][0]
-				# print original_dict[product][build[0][0]][build[1][0]]
-				builds[product][build[0][0]] = original_dict[product][build[0][0]][build[1][0]]
-				# address[build[1][0]] = original_dict[product][build[0][0]][build[1][0]]
-				print builds
-		# 	lol[product] = original_dict[product][build]
-
-
-
-
-
-
-
+		with open ('subScript_generator.json', "w") as outfile:
+			json.dump(product_list, outfile)
 
 
 
@@ -223,6 +227,7 @@ class main_window(QtGui.QWidget):
 		self.height = 600
 		self.resize(400,self.height)
 
+		self.message = messagesAndPaths()
 		self.products = products
 		self.jenkins_object = jenkins_object
 		# add products dialog window
@@ -242,12 +247,14 @@ class main_window(QtGui.QWidget):
 		self.create_connections()
 
 
+
 	def create_widgets(self):
 		self.button = QtGui.QPushButton('Generate Build List')
 		self.button2 = QtGui.QPushButton('Generate Config List')
 		self.button3 = QtGui.QPushButton('Save and Exit')
 		self.button4 = QtGui.QPushButton('Remove Product (Take out later)')
 		self.button5 = QtGui.QPushButton('Add Product (Take out later)')
+		self.button6 = QtGui.QPushButton('Create Alias for builds')
 		self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
 
 		self.splitter.addWidget(self.product_form)
@@ -262,6 +269,7 @@ class main_window(QtGui.QWidget):
 		main_layout.addWidget(self.button3)
 		main_layout.addWidget(self.button4)
 		main_layout.addWidget(self.button5)
+		main_layout.addWidget(self.button6)
 		self.setLayout(main_layout)
 
 	def create_connections(self):
@@ -270,6 +278,7 @@ class main_window(QtGui.QWidget):
 		self.button3.clicked.connect(self.save_and_exit)
 		self.button4.clicked.connect(self.remove_product)
 		self.button5.clicked.connect(self.add_product)
+		self.button6.clicked.connect(self.alias_window)
 
 	def change_Layout(self):
 		try:
@@ -311,9 +320,9 @@ class main_window(QtGui.QWidget):
 				json.dump(product_output, outfile)
 
 		except IOError:
-			window = errorDialog('Cannot Connect to Jenkins, \n Please Check Connection')
+			window = errorDialog(self.message.return_error_messages('No_Jenkins_Connection'))
 		except:
-			window = errorDialog('If you have added a new product, \n please check the name is correct (This is case sensitive)')
+			window = errorDialog(self.message.return_error_messages('Cannot_Find_New_Product'))
 
 
 	def hide_widgets(self):
@@ -332,12 +341,16 @@ class main_window(QtGui.QWidget):
 			formatted_config_list.append(config_dictionary[1])
 			# Check to see if the user has selected anything
 			if config_dictionary[0] != []:
-				for each in config_dictionary[1]:
+				# print config_dictionary
+				for each in config_dictionary[0]:
 					build_list.append(each)
-					formatted_config_list.append(config_dictionary[1][each]) 
+					formatted_config_list.append(config_dictionary[1][each])
+
 				#delete the name of the product from the dictionary list as we dont need it and it gets in the way 
 				del formatted_config_list[0]
-				self.config_checkbox_form = Container(build_list,formatted_config_list)
+
+				# print build_list , formatted_config_list
+				self.config_checkbox_form = Container(build_list,formatted_config_list,config_dictionary[2])
 				# Resize the widget to accomodate the new widget
 				self.resize(800,self.height)
 				# Insert the widget
@@ -384,6 +397,8 @@ class main_window(QtGui.QWidget):
 		self.splitter.setSizes([70,230])
 		self.resize(400,self.height)
 
+	def alias_window(self):
+		self.lol = AliasWindow()
 
 
 class product_window(QtGui.QWidget):
@@ -408,7 +423,7 @@ class product_window(QtGui.QWidget):
 		tmp_list = []
 		for name in self.products:
 			tmp_list.append(name)
-		tmp_list.sort()
+		# tmp_list.sort()
 
 		checkBoxLayout = QtGui.QVBoxLayout()
 		checkBoxLayout.setContentsMargins(0,0,0,0)
@@ -490,22 +505,121 @@ class choose_projects():
 	def populate_products_with_builds(self,product_list):
 		self.config = []
 		self.products = []
+		products = []
+
 		# # Get the builds from selected products and write it to a dictionary
 		# ins = getProjectConfigurations()
 		# ins.return_multiple_projects(product_list)
 		# Read it from the dictionary
 		with open('jenkins_Builds.json') as data_file:
-			test1 = json.load(data_file)
+			builds_from_file = json.load(data_file)
 
-		# Format the data so that we get a list that contains the product name and a dictionary for each product
-		for each in test1:
+
+		for each in builds_from_file:
 			# Products
-			self.products.append(each)
+			products.append(each)
+		#sort the products list so we can then attach the rest of the data (makes the UI layout in order)
+		products.sort()
+		# Format the data so that we get a list that contains the product name and a dictionary for each product
+		for item in products:
+			# Products
+			self.products.append(item)
 			# Dictionary of builds
-			self.config.append(test1[each])
+			self.config.append(builds_from_file[item])
 
 		combined_list = [self.products, self.config]
 		return combined_list
+
+class AliasWindow(QtGui.QWidget):
+	def __init__(self, parent = None):
+		super(AliasWindow, self).__init__(parent)
+
+		self.height = 600
+		self.resize(400,self.height)
+
+		self.alias = {}
+		with open("subScript_generator.json") as data_file:
+			self.returned_data = json.load(data_file)
+
+
+		self.create_widgets()
+		self.populate()
+		self.create_layout()
+		# self.create_connections()
+
+
+
+	def create_widgets(self):
+		self.table = QtGui.QTableWidget(self)
+		self.table.setColumnCount(2)
+		#hide the row and colum numbers
+		self.table.horizontalHeader().hide()
+		self.table.verticalHeader().hide()
+		#stretch the row to fill the screen
+		self.table.horizontalHeader().setStretchLastSection(True)
+
+
+
+		self.alias_list = []
+		self.build_list = []
+		for product in self.returned_data['generator']:
+			for build in self.returned_data['generator'][product]:
+				#add in the builds selected to the table
+				self.build_list.append(build)
+				# If there are no previous alais' then it will throw an exception so in that case we set each to an empty string 
+				try:
+					self.alias_list.append(self.returned_data['alias'][product])
+				except:
+					self.returned_data['alias'] = {}
+					self.alias_list.append('')
+					with open ("subScript_generator.json", "w") as outfile:
+						json.dump(self.returned_data, outfile)
+
+		self.button = QtGui.QPushButton("Apply")
+
+	def create_layout(self):
+		main_layout = QtGui.QVBoxLayout()
+		main_layout.setContentsMargins(0,0,0,0)
+		main_layout.addWidget(self.table)
+		main_layout.addWidget(self.button)
+		self.setLayout(main_layout)
+		self.show()
+
+	def create_connections(self):
+		self.button.clicked.connect(save_and_exit)
+
+	def populate(self):
+		self.table.clear()
+		self.rowCount = len(self.build_list)+1
+		self.table.setRowCount(self.rowCount)
+		for index, item in enumerate(self.build_list):
+			line_edit = QtGui.QLineEdit(self)
+			line_edit.setText(self.alias_list[index])
+			line_edit.editingFinished.connect(self.get_alias)
+			label = QtGui.QLabel(self)
+			label.setText(item)
+			label.setContentsMargins(5,5,5,5)
+			self.table.setCellWidget(index, 0, label)
+			self.table.setCellWidget(index, 1, line_edit)
+
+		self.table.resizeRowsToContents()
+		self.table.resizeColumnsToContents()
+
+	def get_alias(self):
+		# for each text box write out the alias
+		for index, item in enumerate(self.build_list):
+			text = self.table.cellWidget(index,1).text()
+			self.returned_data['alias'][item] = text
+
+		with open ("subScript_generator.json", "w") as outfile:
+			json.dump(self.returned_data, outfile)
+
+	def save_and_exit(self):
+		with open ("subScript_generator.json", "w") as outfile:
+			json.dump(self.returned_data, outfile)
+
+
+
 
 
 class styleSheet():
@@ -518,9 +632,7 @@ class styleSheet():
 		     border: 2px solid black;
 		     background-color: #ffa02f;
 		     padding: 1px;
-
 		}
-
 		QWidget
 		{
 		    /*Text*/
@@ -528,28 +640,20 @@ class styleSheet():
 		    /*Change the background colour of the item*/
 		    background-color: #323232;
 		}
-
 		QWidget:item:hover
 		{
 		    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #ca0619);
 		    color: #000000;
 		}
-
-
 		QWidget:disabled
 		{
 		    color: #404040;
 		    background-color: #323232;
 		}
-
-
 		QAbstractItemView
 		{
 		    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #4d4d4d, stop: 0.1 #646464, stop: 1 #5d5d5d);
 		}
-
-
-
 		QLineEdit
 		{
 		    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #4d4d4d, stop: 0 #646464, stop: 1 #5d5d5d);
@@ -558,7 +662,6 @@ class styleSheet():
 		    border: 1px solid #1e1e1e;
 		    border-radius: 5;
 		}
-
 		QPushButton
 		{
 		    color: #b1b1b1;
@@ -572,13 +675,10 @@ class styleSheet():
 		    padding-left: 5px;
 		    padding-right: 5px;
 		}
-
-
 		QPushButton:pressed
 		{
 		    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2d2d2d, stop: 0.1 #2b2b2b, stop: 0.5 #292929, stop: 0.9 #282828, stop: 1 #252525);
 		}
-
 		QComboBox
 		{
 		    selection-background-color: #262626;
@@ -587,13 +687,10 @@ class styleSheet():
 		    border: 1px solid #1e1e1e;
 		    border-radius: 5;
 		}
-
 		QComboBox:hover,QPushButton:hover
 		{
 		    border: 2px solid #ffa02f;
 		}
-
-
 		QComboBox:on
 		{
 		    padding-top: 3px;
@@ -601,51 +698,36 @@ class styleSheet():
 		    background-color: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2d2d2d, stop: 0.1 #2b2b2b, stop: 0.5 #292929, stop: 0.9 #282828, stop: 1 #252525);
 		    selection-background-color: #262626;
 		}
-
 		QComboBox QAbstractItemView
 		{
 		    border: 0px solid darkgrey;
 		    selection-background-color: #262626;
 		    opacity: 60;
-
 		}
-
 		QComboBox::drop-down
 		{
 		     subcontrol-origin: padding;
 		     subcontrol-position: top right;
 		     width: 15px;
-
 		     border-left-width: 0px;
 		     border-left-color: darkgray;
 		     border-left-style: solid; /* just a single line */
 		     border-top-right-radius: 3px; /* same radius as the QComboBox */
 		     border-bottom-right-radius: 3px;
-
 		 }
-
-
-
 		QGroupBox:focus
 		{
 		border: 2px solid QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #d7801a);
 		}
-
 		QTextEdit:focus
 		{
 		    border: 2px solid QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #ffa02f, stop: 1 #d7801a);
 		}
-
-
-
 		QDockWidget::title
 		{
 		    text-align: center;
 		    spacing: 3px; /* spacing between items in the tool bar */
 		}
-
-
-
 		QTabBar::tab {
 		    /* The colour of the tab text */
 		    color: #b1b1b1;
@@ -658,27 +740,21 @@ class styleSheet():
 		    padding-bottom: 2px;
 		    margin-right: -1px;
 		}
-
 		QTabWidget::pane {
 		    /* The colour border */
 		    border: 1px solid black;
 		    top: -1px;
 		}
-
 		QTabBar::tab:last
 		{
 		    margin-right: 1; /* the last selected tab has nothing to overlap with on the right */
 		    border-top-right-radius: 3px;
 		}
-
 		QTabBar::tab:first:!selected
 		{
 		    margin-left: 0px; /* the last selected tab has nothing to overlap with on the right */
-
-
 		    border-top-left-radius: 3px;
 		}
-
 		QTabBar::tab:!selected
 		{
 		    color: #b1b1b1;
@@ -687,7 +763,6 @@ class styleSheet():
 		    margin-top: 3px;
 		    background-color: QLinearGradient(x1:0, y1:0, x2:0, y2:1, stop:1 #404040, stop:.4 #4d4d4d);
 		}
-
 		QTabBar::tab:selected
 		{
 		    background-color: #262626;
@@ -695,7 +770,6 @@ class styleSheet():
 		    border-top-right-radius: 3px;
 		    margin-bottom: 0px;
 		}
-
 		QTabBar::tab:!selected:hover
 		{
 		    /*border-top: 2px solid #ffaa00;
@@ -704,28 +778,22 @@ class styleSheet():
 		    border-top-right-radius: 3px;
 		    background-color: QLinearGradient(x1:0, y1:0, x2:0, y2:1, stop:1 #212121, stop:0.4 #343434, stop:0.2 #343434, stop:0.1 #ffaa00);
 		}
-
 		QComboBox::down-arrow
 		{
 		     image: url(:/down_arrow.png);
 		}
-
 		QProgressBar
 		{
 		    border: 2px solid grey;
 		    border-radius: 5px;
 		    text-align: center;
 		}
-
 		QProgressBar::chunk
 		{
 		    background-color: #d7801a;
 		    width: 2.15px;
 		    margin: 0.5px;
 		}
-
-
-
 		'''
 		return sheet
 
@@ -754,6 +822,4 @@ def main():
 
 if __name__ == '__main__':
    test = main()
-
-
 

@@ -5,7 +5,7 @@ class Utils:
 	def __init__(self,productType,buildType,configuration):
 
 
-		self.location = os. getcwd ()
+		self.location = os.getcwd ()
 		self.product_type = productType
 		self.buildType = buildType
 		self.product_folder_name = self.product_type + '_Builds'
@@ -50,8 +50,6 @@ class Utils:
 		if os.path.exists(self.location + fileName):
 			os.remove(self.location + fileName)
 			# print 'deleted old archive.tgz'
-		else:
-			pass
 
 
 		lastSuccessfulBuild = urllib.URLopener()
@@ -115,7 +113,7 @@ class Utils:
 
 
 if __name__ == "__main__":
-	util = Utils('Joota','Joota_901dev','FnMachineSpec=meerman,FnOptType=release,FnProductLabel=Joota')
+	util = Utils('Modo','Joota_901dev','FnMachineSpec=meerman,FnOptType=release,FnProductLabel=Joota')
 	# util.get_file_size()
 	# util.getFolderList()
 	# util.retrieveFromJenkins()
